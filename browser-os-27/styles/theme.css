@@ -1,0 +1,147 @@
+/* ============================================================
+   Browser OS — theme tokens
+   ============================================================ */
+
+:root {
+  --accent: #4f8cff;
+  --accent-soft: rgba(79, 140, 255, .18);
+  --accent-2: #a06bff;
+  /* Text drawn *on* the accent colour (primary buttons, active segments). White is fine on
+     blue/violet; light accents like lime/amber override this to dark. */
+  --on-accent: #ffffff;
+  /* The accent is also used *as* text — terminal output, links, the active sidebar item, the
+     calculator's operator keys. Text on a dark surface and text on a light surface are different
+     problems, so a preset carries one ink per surface instead of one ink and a darkened twin.
+     The bar is 4.5:1 measured *on the tinted panel a selected state paints*, not on the bare
+     surface: `--accent-soft` lifts a dark surface by 18% of the accent, which is enough to take
+     blue from 4.85:1 to 3.96:1 on `--surface-3`. tests/token-contrast.test.mjs checks every
+     preset against both, so these numbers cannot drift back. */
+  --accent-text-dark: #699dff;
+  --accent-text-light: #1c4acd;
+  --accent-text: var(--accent-text-dark);
+
+  --bg: #0a0e1a;
+  --surface: rgba(20, 25, 40, .88);
+  --surface-solid: #151a2b;
+  --surface-2: #1c2337;
+  --surface-3: #232c44;
+  --hover: rgba(255, 255, 255, .07);
+  --active: rgba(255, 255, 255, .13);
+
+  --border: rgba(255, 255, 255, .10);
+  --border-strong: rgba(255, 255, 255, .20);
+
+  /* Three levels of ink, and the faintest one is still text. `--text-faint` is not decoration:
+     it is the "No open windows" in the taskbar, the "Places" heading, a file's size, the empty
+     state of an app, the terminal's banner. #6b7690 measured 3.05:1 on `--surface-3` and 3.43:1
+     on `--surface-2` — a third of the body text you actually have to read. The faintest level is
+     now chosen to clear 4.5:1 on the lightest surface it is used on, and `--text-dim` moved up to
+     keep the three levels visibly three levels apart. */
+  --text: #e9edf7;
+  --text-dim: #b3bccf;
+  --text-faint: #939eb8;
+
+  /* The terminal keeps a dark canvas in *both* themes — a dark rectangle is what a terminal looks
+     like, and the light theme only lifts it slightly. Its text therefore cannot be the theme's
+     text: the light theme's near-black ink on a near-black canvas measured 1.15:1, and its
+     darkened accent/status inks measured 2.5–2.8:1. The palette is declared once, outside the
+     theme blocks, and `.term` rebinds the semantic names to it. */
+  --term-text: #e9edf7;
+  --term-dim: #b3bccf;
+  --term-faint: #939eb8;
+  --term-ok: #3ddc97;
+  --term-danger: #ff5f6d;
+
+  /* The veil a modal puts over the desktop. The dark theme's is the one that has always been
+     here; the light theme's was the same colour, and over a light taskbar rgba(4,7,14,.55) left
+     the clock and "0 windows · 4 files" at 1.21:1 — not de-emphasised, gone. A lighter veil is
+     still a veil, and it keeps the background legible instead of erasing it. */
+  --scrim: rgba(4, 7, 14, .55);
+
+  --danger: #ff5f6d;
+  --ok: #3ddc97;
+  --warn: #ffb454;
+  /* Status *text* is a different problem from a status *fill*. #3ddc97 is a fine toast border
+     on a dark card and 1.63:1 as text on a light one; white on #ff5f6d is 2.95:1, which is a
+     button label nobody can read. The fills stay where they are; the ink that sits *on* them or
+     *on a surface* is chosen per theme, the same way `--on-accent` is. */
+  --on-danger: #21070c;
+  --ok-text: #3ddc97;
+  --warn-text: #ffb454;
+  --danger-text: #ff5f6d;
+
+  --shadow-window: 0 24px 60px rgba(0, 0, 0, .55), 0 2px 0 rgba(255, 255, 255, .06) inset;
+  --shadow-pop: 0 16px 40px rgba(0, 0, 0, .45);
+
+  --radius: 10px;
+  --radius-sm: 6px;
+  --taskbar-h: 48px;
+  --titlebar-h: 34px;
+
+  --font: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+
+  /* Text drawn *on* the wallpaper. It is not `--text`: the desktop sits on the wallpaper in
+     both themes, and the light theme's `--text` is a dark ink that is unreadable on a dark
+     gradient. Theme.js measures the wallpaper that is actually on screen and overwrites these
+     two; they are the fallback for a wallpaper with no colours to measure. */
+  --wallpaper-text: #e9edf7;
+  --wallpaper-shadow: 0 1px 3px rgba(0, 0, 0, .75);
+  /* Painted only when no ink measured readable on the wallpaper (see `wallpaperInkFromSamples`).
+     Transparent is the normal state: every shipped preset measures readable. */
+  --wallpaper-plate: transparent;
+}
+
+html[data-theme="light"] {
+  --accent: #2563eb;
+  --accent-soft: rgba(37, 99, 235, .14);
+  --accent-2: #7c3aed;
+
+  --bg: #eef1f7;
+  --surface: rgba(255, 255, 255, .92);
+  --surface-solid: #ffffff;
+  --surface-2: #f4f6fb;
+  --surface-3: #e8ecf5;
+  --hover: rgba(15, 23, 42, .06);
+  --active: rgba(15, 23, 42, .11);
+
+  --border: rgba(15, 23, 42, .13);
+  --border-strong: rgba(15, 23, 42, .26);
+
+  --text: #16202f;
+  --text-dim: #3d4a5f;
+  --text-faint: #57647a;
+  --scrim: rgba(15, 23, 42, .35);
+  --accent-text: var(--accent-text-light);
+
+  --shadow-window: 0 22px 48px rgba(15, 23, 42, .22), 0 1px 0 rgba(255, 255, 255, .8) inset;
+  --shadow-pop: 0 14px 34px rgba(15, 23, 42, .18);
+
+  /* The same three colours cannot be a fill on white and text on white. In the light theme the
+     fills move to the dark end so a white label on them reads (6.5:1), and the text tokens
+     match them. */
+  --danger: #b3261e;
+  --ok: #1a7f4f;
+  --warn: #8a5a00;
+  --on-danger: #ffffff;
+  --ok-text: #146c3f;
+  --warn-text: #8a5000;
+  --danger-text: #b3261e;
+}
+
+/* Accent presets (set via Settings → Accent).
+   Each one carries three colours, not one: the fill, the ink that sits on the fill, and the ink
+   used *as text* on a surface. `--on-accent` depends only on the fill, so it is the same in both
+   themes; `--accent-text` depends on the surface, so the light theme overrides it below. */
+/* Each preset carries the fill, the ink that sits *on* the fill (same in both themes, it depends
+   only on the fill), and the ink used *as text* on a dark surface and on a light one. The dark
+   column is not the accent itself: the selected states paint `--accent-soft` under that text, and
+   the accent measured against its own tint falls below 4.5:1 for blue, violet, amber and rose.
+   Each value below is the same hue, lightened (dark) or darkened (light) until it clears 4.6:1 on
+   every surface and every tint in this file. */
+html[data-accent="blue"]   { --accent: #4f8cff; --accent-2: #a06bff; --accent-soft: rgba(79,140,255,.18); --on-accent: #08111f; --accent-text-dark: #699dff; --accent-text-light: #1c4acd; }
+html[data-accent="violet"] { --accent: #a06bff; --accent-2: #ff6bb5; --accent-soft: rgba(160,107,255,.18); --on-accent: #12081f; --accent-text-dark: #bf9eff; --accent-text-light: #6d28d9; }
+html[data-accent="teal"]   { --accent: #21c7b8; --accent-2: #4f8cff; --accent-soft: rgba(33,199,184,.18); --on-accent: #04140f; --accent-text-dark: #21c7b8; --accent-text-light: #0c5c56; }
+html[data-accent="amber"]  { --accent: #f2a33c; --accent-2: #ff6b6b; --accent-soft: rgba(242,163,60,.18); --on-accent: #14100a; --accent-text-dark: #f5ba6c; --accent-text-light: #a35104; }
+html[data-accent="rose"]   { --accent: #ff5f8f; --accent-2: #a06bff; --accent-soft: rgba(255,95,143,.18); --on-accent: #1c0a12; --accent-text-dark: #ffb6cc; --accent-text-light: #c2185b; }
+html[data-accent="lime"]   { --accent: #7ac94a; --accent-2: #21c7b8; --accent-soft: rgba(122,201,74,.18); --on-accent: #0c1408; --accent-text-dark: #7ac94a; --accent-text-light: #3f6212; }

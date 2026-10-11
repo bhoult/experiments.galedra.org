@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Experiments</title>
+<meta name="description" content="Experiments: Browser OS, a desktop in a browser tab, built and polished in unattended passes by a coding agent running a local model.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M6 2h4M7 2v4l-4 7a1 1 0 0 0 1 1.5h8a1 1 0 0 0 1-1.5l-4-7V2' fill='none' stroke='%234f8cff' stroke-width='1.6' stroke-linejoin='round'/%3E%3C/svg%3E">
+<style>
+  :root {
+    --bg: #f4f2ec;
+    --card: #ffffff;
+    --ink: #1d2126;
+    --muted: #5d636b;
+    --line: #dcd8ce;
+    --accent: #2f62c9;
+    --button: #1d2126;
+    --button-ink: #ffffff;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #12151a;
+      --card: #1b2028;
+      --ink: #e8e6e1;
+      --muted: #9aa1aa;
+      --line: #2c333d;
+      --accent: #7aa7ff;
+      --button: #7aa7ff;
+      --button-ink: #12151a;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font: 17px/1.55 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  main { max-width: 960px; margin: 0 auto; padding: 48px 20px 64px; }
+  header h1 { font-size: 2.4rem; margin: 0 0 4px; letter-spacing: -0.02em; }
+  header p { margin: 0 0 40px; color: var(--muted); }
+  section h2 { font-size: 1.5rem; margin: 0 0 8px; }
+  section > p { margin: 0 0 24px; max-width: 46em; }
+  ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 28px; }
+  .exp {
+    display: grid;
+    grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    overflow: hidden;
+  }
+  a { color: var(--accent); }
+  .exp img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: left top; aspect-ratio: 16 / 10; }
+  .exp .about { padding: 24px 26px 26px; display: flex; flex-direction: column; gap: 10px; }
+  .exp h3 { margin: 0; font-size: 1.45rem; }
+  .exp h3 a { color: inherit; text-decoration: none; }
+  .tag { color: var(--accent); font-weight: 600; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.06em; }
+  .exp p { margin: 0; }
+  .exp ul { margin: 0; padding-left: 1.1em; color: var(--muted); font-size: 0.95rem; }
+  .open {
+    align-self: flex-start;
+    margin-top: 6px;
+    background: var(--button);
+    color: var(--button-ink);
+    text-decoration: none;
+    font-weight: 600;
+    padding: 10px 22px;
+    border-radius: 8px;
+  }
+  .open:hover, .open:focus-visible { filter: brightness(1.12); }
+  footer { margin-top: 36px; color: var(--muted); font-size: 0.88rem; }
+  @media (max-width: 720px) {
+    main { padding-top: 32px; }
+    .exp { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Experiments</h1>
+    <p>Things built to see what happens, kept as they were when copied here. None of them is maintained.</p>
+  </header>
+
+  <section>
+    <h2>Browser OS, polished by a local model</h2>
+    <p>A desktop that runs in a browser tab, with windows, a shell, a virtual filesystem and nine small apps. The <a href="https://pi.dev/">pi</a> coding agent built it and then kept improving it in unattended passes, running Qwen3.8-Flash-Next on one gaming PC through Strata. Each pass read the previous one's notes, chose what to fix next, and left notes for the one after.</p>
+    <ol>
+      <li class="exp">
+        <a href="/browser-os-01/" tabindex="-1" aria-hidden="true"><img src="browser-os-01.jpg" alt="" width="960" height="600"></a>
+        <div class="about">
+          <span class="tag">Pass 1 · 45 minutes</span>
+          <h3><a href="/browser-os-01/">Version 01</a></h3>
+          <p>The first pass, stopped at its 45-minute limit. Windows that snap and maximise, a terminal, a file manager, an editor and Paint, with everything saved in the browser.</p>
+          <a class="open" href="/browser-os-01/">Open version 01</a>
+        </div>
+      </li>
+      <li class="exp">
+        <a href="/browser-os-27/" tabindex="-1" aria-hidden="true"><img src="browser-os-27.jpg" alt="" width="960" height="600"></a>
+        <div class="about">
+          <span class="tag">26 passes · over 30 hours</span>
+          <h3><a href="/browser-os-27/">Version 27</a></h3>
+          <p>The same desktop after 26 passes, copied about 15 minutes into the 27th.</p>
+          <ul>
+            <li>Windows snap to halves and quarters, and can be moved and tiled from the keyboard</li>
+            <li>The shell has pipes, redirection, aliases and history search (Ctrl+R)</li>
+            <li>Undo and redo in Paint, and pinch-zoom in the image viewer</li>
+            <li>Toolbars that fit a phone-width window, and a contrast check of both themes</li>
+          </ul>
+          <a class="open" href="/browser-os-27/">Open version 27</a>
+        </div>
+      </li>
+    </ol>
+  </section>
+
+  <footer>Each experiment runs entirely in your browser and keeps what you make in your browser's storage, separately for each version. Copied here on 10 October 2026.</footer>
+</main>
+</body>
+</html>

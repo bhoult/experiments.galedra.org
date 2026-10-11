@@ -1,0 +1,15 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Embed fixture</title>
+  <style>body { font: 14px system-ui; margin: 16px; }</style>
+</head>
+<body>
+  <!-- A plain page with no module scripts: it renders even inside a sandboxed iframe
+       (no allow-same-origin), which is what the Web Browser app uses for same-origin URLs.
+       The browser tests navigate here to prove the frame really loads. -->
+  <h1>Embed fixture</h1>
+  <p id="ok">This page was framed by the Browser OS Web app.</p>
+</body>
+</html>

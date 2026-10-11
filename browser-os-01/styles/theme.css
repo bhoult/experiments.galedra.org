@@ -1,0 +1,73 @@
+/* ============================================================
+   Browser OS — theme tokens
+   ============================================================ */
+
+:root {
+  --accent: #4f8cff;
+  --accent-soft: rgba(79, 140, 255, .18);
+  --accent-2: #a06bff;
+
+  --bg: #0a0e1a;
+  --surface: rgba(20, 25, 40, .88);
+  --surface-solid: #151a2b;
+  --surface-2: #1c2337;
+  --surface-3: #232c44;
+  --hover: rgba(255, 255, 255, .07);
+  --active: rgba(255, 255, 255, .13);
+
+  --border: rgba(255, 255, 255, .10);
+  --border-strong: rgba(255, 255, 255, .20);
+
+  --text: #e9edf7;
+  --text-dim: #98a2ba;
+  --text-faint: #6b7690;
+
+  --danger: #ff5f6d;
+  --ok: #3ddc97;
+  --warn: #ffb454;
+
+  --shadow-window: 0 24px 60px rgba(0, 0, 0, .55), 0 2px 0 rgba(255, 255, 255, .06) inset;
+  --shadow-pop: 0 16px 40px rgba(0, 0, 0, .45);
+
+  --radius: 10px;
+  --radius-sm: 6px;
+  --taskbar-h: 48px;
+  --titlebar-h: 34px;
+
+  --font: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+
+  --wallpaper: linear-gradient(140deg, #16213e 0%, #0f3460 45%, #1a1a2e 100%);
+}
+
+html[data-theme="light"] {
+  --accent: #2563eb;
+  --accent-soft: rgba(37, 99, 235, .14);
+  --accent-2: #7c3aed;
+
+  --bg: #eef1f7;
+  --surface: rgba(255, 255, 255, .92);
+  --surface-solid: #ffffff;
+  --surface-2: #f4f6fb;
+  --surface-3: #e8ecf5;
+  --hover: rgba(15, 23, 42, .06);
+  --active: rgba(15, 23, 42, .11);
+
+  --border: rgba(15, 23, 42, .13);
+  --border-strong: rgba(15, 23, 42, .26);
+
+  --text: #16202f;
+  --text-dim: #55637a;
+  --text-faint: #8492a8;
+
+  --shadow-window: 0 22px 48px rgba(15, 23, 42, .22), 0 1px 0 rgba(255, 255, 255, .8) inset;
+  --shadow-pop: 0 14px 34px rgba(15, 23, 42, .18);
+}
+
+/* Accent presets (set via Settings → Accent) */
+html[data-accent="blue"]   { --accent: #4f8cff; --accent-2: #a06bff; --accent-soft: rgba(79,140,255,.18); }
+html[data-accent="violet"] { --accent: #a06bff; --accent-2: #ff6bb5; --accent-soft: rgba(160,107,255,.18); }
+html[data-accent="teal"]   { --accent: #21c7b8; --accent-2: #4f8cff; --accent-soft: rgba(33,199,184,.18); }
+html[data-accent="amber"]  { --accent: #f2a33c; --accent-2: #ff6b6b; --accent-soft: rgba(242,163,60,.18); }
+html[data-accent="rose"]   { --accent: #ff5f8f; --accent-2: #a06bff; --accent-soft: rgba(255,95,143,.18); }
+html[data-accent="lime"]   { --accent: #7ac94a; --accent-2: #21c7b8; --accent-soft: rgba(122,201,74,.18); }

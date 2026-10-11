@@ -1,0 +1,17 @@
+{
+  "name": "browser-os",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "A desktop environment that runs entirely in the browser. No build step, no runtime dependencies.",
+  "scripts": {
+    "start": "node serve.mjs",
+    "test": "node --test tests/fs.test.mjs tests/geometry.test.mjs tests/storage.test.mjs tests/names.test.mjs tests/wallpaper.test.mjs tests/contracts.test.mjs tests/token-contrast.test.mjs tests/fit.test.mjs tests/browser/*.test.mjs",
+    "test:unit": "node --test tests/fs.test.mjs tests/geometry.test.mjs tests/storage.test.mjs tests/names.test.mjs tests/wallpaper.test.mjs tests/contracts.test.mjs tests/token-contrast.test.mjs tests/fit.test.mjs",
+    "test:browser": "node --test tests/browser/*.test.mjs",
+    "screenshots": "node tests/screenshot.mjs"
+  },
+  "devDependencies": {
+    "playwright": "^1.64.0"
+  }
+}

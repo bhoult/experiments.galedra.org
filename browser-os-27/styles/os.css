@@ -1,0 +1,784 @@
+/* ============================================================
+   Browser OS — shell, window manager and app styles
+   ============================================================ */
+
+* { box-sizing: border-box; }
+
+html, body {
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  font-family: var(--font);
+  color: var(--text);
+  background: var(--bg);
+  -webkit-font-smoothing: antialiased;
+  overscroll-behavior: none;
+}
+
+button, input, textarea, select { font: inherit; color: inherit; }
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.hidden { display: none !important; }
+
+.os { position: fixed; inset: 0; }
+
+/* ---------- wallpaper ----------
+   The wallpaper is one mechanism: `Theme.apply()` writes the chosen background onto the element.
+   There used to be a `background: var(--wallpaper)` here as well, pointing at a token that no
+   longer exists in theme.css — a declaration that resolved to nothing and was overwritten on
+   every settings change anyway. */
+.wallpaper {
+  position: absolute; inset: 0;
+  background-size: cover;
+  background-position: center;
+}
+.wallpaper::after {
+  content: ""; position: absolute; inset: 0;
+  background: radial-gradient(120% 90% at 50% 0%, rgba(255,255,255,.07), transparent 60%);
+  pointer-events: none;
+}
+
+/* ---------- desktop + icons ---------- */
+.desktop { position: absolute; inset: 0 0 var(--taskbar-h) 0; overflow: hidden; outline: none; }
+
+.desktop-icons {
+  position: absolute; inset: 12px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, 96px);
+  /* 108px, not 92px: the label is allowed two lines of name plus its protected tail (see
+     `.dicon .label`), and a grid row is a fixed track — content taller than the track overlaps
+     the row below it. Measured with tests/measure-desktop.mjs: padding 12 + glyph 46 + gap 4 +
+     label 42 = 104px of icon, and the plate halo adds 3px more, so the track has to clear that. */
+  grid-auto-rows: 108px;
+  /* Row-major, on purpose. A column-flowed grid with only implicit rows has a single row,
+     so every icon is laid out to the right: at 420px five of the nine icons sat off-screen
+     with nothing to scroll them into view. Filling a row and wrapping to the next keeps
+     the top band of icons the window placement code assumes, and it works at any width. */
+  grid-auto-flow: row;
+  gap: 4px;
+  align-content: start;
+  /* Wrapping keeps the grid inside the screen horizontally; this keeps it reachable
+     vertically. A desktop full of files must not bury the last ones below a fold nobody
+     can scroll to. */
+  overflow: hidden auto;
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--text) 25%, transparent) transparent;
+  overscroll-behavior: contain;
+}
+
+.dicon {
+  border: 0; background: transparent; color: var(--wallpaper-text);
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  padding: 6px 2px; border-radius: var(--radius-sm); cursor: default;
+  user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
+}
+.dicon:hover { background: var(--hover); }
+.dicon.selected { background: var(--accent-soft); outline: 1px solid var(--accent); }
+/* Dropping real files onto the desktop uploads them into ~/Desktop. */
+.desktop.dropping { outline: 2px dashed var(--accent); outline-offset: -10px; }
+.dicon .glyph {
+  width: 46px; height: 46px; display: grid; place-items: center;
+  font-size: 26px; border-radius: 10px;
+  /* Not `--surface-2`/`--surface-solid`. The icon sits on the *wallpaper*, while the window
+     surfaces follow the theme: in the light theme over a dark wallpaper that painted a near-white
+     tile under a light ink, and a monochrome glyph like ⌨️ or 📄 — drawn in `--wallpaper-text`,
+     which is light because the wallpaper is dark — measured 1.1:1 on it. A tile is now a weaker
+     version of the ink it carries, so whatever the wallpaper and the theme, the glyph always beats
+     its own background. */
+  background: linear-gradient(160deg,
+    color-mix(in srgb, var(--wallpaper-text) 26%, transparent),
+    color-mix(in srgb, var(--wallpaper-text) 9%, transparent));
+  border: 1px solid color-mix(in srgb, var(--wallpaper-text) 32%, transparent);
+  box-shadow: 0 6px 16px rgba(0,0,0,.28);
+}
+.dicon .label {
+  font-size: 12px; line-height: 1.25; text-align: center; max-width: 92px;
+  text-shadow: var(--wallpaper-shadow);
+  /* The plate is transparent for every wallpaper that was measured as readable. It is only
+     painted when the measurement failed — a mid-tone photograph no ink can read on — and then
+     it is what makes the label readable, with the ratio reported in Settings measured *through*
+     it. See `wallpaperInkFromSamples` in src/core/theme.js.
+     The halo is a box-shadow spread rather than padding so that it costs nothing when it is
+     transparent: padding would take 8px off every label's text room, on every wallpaper, to pay
+     for a plate that is never drawn. */
+  background: var(--wallpaper-plate, transparent);
+  box-shadow: 0 0 0 3px var(--wallpaper-plate, transparent);
+  border-radius: var(--radius-sm);
+}
+/* A long name on the desktop is the same problem as in the grid, with a different truncator:
+   the label wraps to lines and the *last* one is the one a clamp throws away, which is where
+   the extension was. `splitName` writes the name as two spans and the layout makes the second
+   one survive: the head is its own clamped box, the tail is a separate line underneath and is
+   never the line that gets dropped.
+   Measured with tests/measure-desktop.mjs at a 1280px viewport: the label box is 92px wide with
+   no padding, so the head has 92px of text room — about 13 zero-width glyphs (6.86px each) to a
+   line, ~26 across the two lines it is allowed, where one line held 13 and the tail was the
+   thing that got cut. Letting the head wrap *inside the label's own clamp* was tried first, and
+   is what broke it: a wrapped head pushed the tail past the end of the clamp, so the longest
+   name lost its extension exactly as before. */
+.dicon .label .name-head {
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  overflow: hidden;
+  /* `break-word`, not `anywhere`: a name full of hyphens has real break opportunities, and
+     breaking "release-2024-06-30" at a hyphen instead of mid-number is free. A name with no
+     delimiter at all still breaks anywhere, because that is what break-word falls back to. */
+  overflow-wrap: break-word;
+}
+.dicon .label .name-tail { display: block; line-height: 1; }
+
+/* ---------- windows ---------- */
+.windows-layer { position: absolute; inset: 0 0 var(--taskbar-h) 0; pointer-events: none; }
+
+.window {
+  position: absolute; pointer-events: auto;
+  display: flex; flex-direction: column;
+  min-width: 240px; min-height: 140px;
+  background: var(--surface); backdrop-filter: blur(18px) saturate(140%);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-window);
+  overflow: hidden;
+  animation: win-in .16s cubic-bezier(.2,.9,.3,1);
+  contain: layout paint;
+}
+@keyframes win-in { from { opacity: 0; transform: scale(.97) translateY(6px); } to { opacity: 1; transform: none; } }
+.window.focused { border-color: color-mix(in srgb, var(--accent) 55%, var(--border)); }
+.window.minimized { display: none; }
+.window.maximized { border-radius: 0; border-color: transparent; }
+.window.closing { animation: win-out .12s ease forwards; }
+@keyframes win-out { to { opacity: 0; transform: scale(.96); } }
+
+.titlebar {
+  height: var(--titlebar-h); flex: 0 0 auto;
+  display: flex; align-items: center; gap: 8px;
+  padding: 0 6px 0 10px;
+  background: linear-gradient(180deg, var(--surface-2), transparent);
+  border-bottom: 1px solid var(--border);
+  cursor: move; touch-action: none; user-select: none;
+}
+.window:not(.focused) .titlebar { opacity: .72; }
+.titlebar:focus-visible { outline: 2px solid var(--accent); outline-offset: -3px; border-radius: var(--radius) var(--radius) 0 0; }
+.titlebar .wicon { font-size: 15px; }
+.titlebar .wtitle {
+  flex: 1; font-size: 13px; font-weight: 600; letter-spacing: .1px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.wcontrols { display: flex; gap: 2px; }
+.wbtn {
+  width: 26px; height: 24px; border: 0; border-radius: var(--radius-sm);
+  background: transparent; color: var(--text-dim); cursor: pointer;
+  display: grid; place-items: center; font-size: 13px;
+}
+.wbtn:hover { background: var(--hover); color: var(--text); }
+.wbtn.close:hover { background: var(--danger); color: var(--on-danger); }
+
+.wbody { flex: 1; min-height: 0; position: relative; overflow: auto; }
+.window.maximized .wbody { border-radius: 0; }
+
+/* Resize handles live INSIDE the window edges: `.window` has overflow:hidden and a
+   rounded corner, so handles poking outward were clipped and effectively ungrabbable. */
+.rz { position: absolute; z-index: 5; }
+.rz-n { top: 0; left: 18px; right: 18px; height: 8px; cursor: ns-resize; }
+.rz-s { bottom: 0; left: 18px; right: 18px; height: 8px; cursor: ns-resize; }
+.rz-w { left: 0; top: 18px; bottom: 18px; width: 8px; cursor: ew-resize; }
+.rz-e { right: 0; top: 18px; bottom: 18px; width: 8px; cursor: ew-resize; }
+.rz-nw { left: 0; top: 0; width: 16px; height: 16px; cursor: nwse-resize; }
+.rz-ne { right: 0; top: 0; width: 16px; height: 16px; cursor: nesw-resize; }
+.rz-sw { left: 0; bottom: 0; width: 16px; height: 16px; cursor: nesw-resize; }
+.rz-se { right: 0; bottom: 0; width: 16px; height: 16px; cursor: nwse-resize; }
+.window.maximized .rz { display: none; }
+
+/* The resize strips are hittable but invisible, so each corner handle carries three
+   short diagonal grip lines: hidden at rest, faint while the pointer is anywhere in
+   the window, stronger when the handle itself is hovered. */
+.rz-nw::after, .rz-ne::after, .rz-sw::after, .rz-se::after {
+  content: ''; position: absolute; width: 10px; height: 10px; opacity: 0; pointer-events: none;
+  transition: opacity .15s;
+}
+.window:hover .rz-nw::after, .window:hover .rz-ne::after,
+.window:hover .rz-sw::after, .window:hover .rz-se::after { opacity: .45; }
+.window:hover .rz:hover::after { opacity: .85; }
+.rz-nw::after, .rz-se::after { background: repeating-linear-gradient(135deg, var(--text-dim) 0 1.5px, transparent 1.5px 4.5px); }
+.rz-ne::after, .rz-sw::after { background: repeating-linear-gradient(45deg, var(--text-dim) 0 1.5px, transparent 1.5px 4.5px); }
+.rz-nw::after { left: 3px; top: 3px; }
+.rz-ne::after { right: 3px; top: 3px; }
+.rz-sw::after { left: 3px; bottom: 3px; }
+.rz-se::after { right: 3px; bottom: 3px; }
+
+/* The middle of the top edge moves the window instead of resizing it, because that is
+   where a hand goes when the intent is "move". A short dash shows where the strip is. */
+.rz-move {
+  position: absolute; left: 32%; right: 32%; top: 0; bottom: 0;
+  cursor: grab; touch-action: none;
+}
+.rz-move:active { cursor: grabbing; }
+.rz-move::after {
+  content: ''; position: absolute; left: 50%; top: 2px; width: 28px; height: 2px;
+  transform: translateX(-50%); border-radius: 2px; background: var(--text-dim);
+  opacity: 0; pointer-events: none; transition: opacity .15s;
+}
+.window:hover .rz-move::after { opacity: .3; }
+.window .rz-move:hover::after { opacity: .6; }
+
+.snap-preview {
+  position: absolute; z-index: 99999; pointer-events: none;
+  border: 2px solid var(--accent); border-radius: var(--radius);
+  background: var(--accent-soft);
+  transition: all .09s linear;
+  display: flex; align-items: center; justify-content: center;
+}
+/* The rectangle says *where*; this says *what*. A preview without a name is a guess. */
+.snap-label {
+  padding: 6px 12px; border-radius: 999px;
+  background: var(--accent); color: var(--on-accent);
+  font-size: 12px; font-weight: 700; letter-spacing: .02em;
+}
+
+/* ---------- taskbar ---------- */
+.taskbar {
+  position: absolute; left: 0; right: 0; bottom: 0; height: var(--taskbar-h);
+  display: flex; align-items: center; gap: 8px; padding: 0 8px;
+  background: var(--surface); backdrop-filter: blur(20px) saturate(150%);
+  border-top: 1px solid var(--border);
+  z-index: 100000;
+}
+.start-btn {
+  display: flex; align-items: center; gap: 8px;
+  height: 34px; padding: 0 12px; border-radius: var(--radius-sm);
+  border: 1px solid transparent; background: transparent; color: var(--text);
+  cursor: pointer; font-weight: 600; font-size: 13px;
+}
+.start-btn:hover, .start-btn.open { background: var(--accent-soft); border-color: var(--accent); }
+.start-logo {
+  width: 18px; height: 18px; border-radius: 5px;
+  background: conic-gradient(from 20deg, var(--accent), var(--accent-2), var(--accent));
+  box-shadow: 0 0 12px var(--accent-soft);
+}
+/* Overflow scrolls instead of silently cutting window buttons off — and, like app
+   toolbars, marks the cut side with a fade. */
+.taskbar-items { flex: 1; display: flex; gap: 4px; overflow: auto hidden; scrollbar-width: none; overscroll-behavior-x: contain; min-width: 0; }
+.taskbar-items::-webkit-scrollbar { height: 0; }
+.taskbar-items::before, .taskbar-items::after {
+  content: ''; position: sticky; top: 0; bottom: 0; width: 26px; height: auto;
+  align-self: stretch; flex: 0 0 26px; pointer-events: none; z-index: 2;
+  opacity: 0; transition: opacity .15s;
+}
+.taskbar-items::before { left: 0; margin-right: -26px; background: linear-gradient(90deg, var(--surface), transparent); }
+.taskbar-items::after { right: 0; margin-left: -26px; background: linear-gradient(270deg, var(--surface), transparent); }
+.taskbar-items[data-overflow-left="true"]::before { opacity: 1; }
+.taskbar-items[data-overflow-right="true"]::after { opacity: 1; }
+.taskbar-empty { display: flex; align-items: center; padding: 0 10px; color: var(--text-faint); font-size: 12.5px; font-style: italic; }
+.titem {
+  display: flex; align-items: center; gap: 7px; max-width: 220px;
+  height: 34px; padding: 0 10px; border-radius: var(--radius-sm);
+  border: 1px solid transparent; background: var(--hover); color: var(--text);
+  cursor: pointer; font-size: 12.5px;
+}
+.titem:hover { background: var(--active); }
+.titem.focused { background: var(--accent-soft); border-color: var(--accent); }
+.titem.minimized { opacity: .6; }
+.titem .glyph { font-size: 15px; }
+.titem .t { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.tray { display: flex; align-items: center; gap: 10px; padding-right: 6px; }
+.tray-status { font-size: 12px; color: var(--text-dim); }
+.tray-btn {
+  width: 30px; height: 30px; border-radius: 7px; cursor: pointer;
+  border: 1px solid var(--border); background: var(--surface-2); color: var(--text-dim);
+  display: grid; place-items: center; font-size: 13px;
+}
+.tray-btn:hover { background: var(--accent-soft); color: var(--accent-text); border-color: var(--accent); }
+.clock { font-size: 12.5px; text-align: right; line-height: 1.15; cursor: default; }
+.clock .time { font-variant-numeric: tabular-nums; font-weight: 600; }
+.clock .date { color: var(--text-dim); font-size: 11px; }
+
+/* ---------- start menu ---------- */
+.start-menu {
+  position: absolute; left: 8px; bottom: calc(var(--taskbar-h) + 8px);
+  width: 420px; max-width: calc(100vw - 16px); max-height: min(560px, calc(100vh - var(--taskbar-h) - 24px));
+  background: var(--surface); backdrop-filter: blur(24px) saturate(150%);
+  border: 1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow-pop);
+  z-index: 100001; display: flex; flex-direction: column; overflow: hidden;
+  animation: pop-in .14s cubic-bezier(.2,.9,.3,1);
+}
+@keyframes pop-in { from { opacity: 0; transform: translateY(8px) scale(.98); } to { opacity: 1; transform: none; } }
+.start-search { padding: 12px; border-bottom: 1px solid var(--border); }
+.start-search input {
+  width: 100%; height: 34px; padding: 0 12px; border-radius: 8px;
+  background: var(--surface-2); border: 1px solid var(--border); outline: none;
+}
+.start-search input:focus { border-color: var(--accent); }
+.start-body { overflow: auto; padding: 10px 12px 14px; }
+.start-section { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--text-faint); margin: 8px 2px 6px; }
+.app-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 6px; }
+.app-tile {
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  padding: 10px 6px; border: 1px solid transparent; border-radius: 10px;
+  background: transparent; cursor: pointer; color: var(--text);
+}
+.app-tile:hover { background: var(--hover); border-color: var(--border); }
+.app-tile .glyph { font-size: 24px; }
+.app-tile .name { font-size: 12px; }
+.start-footer { padding: 8px 12px; border-top: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: var(--text-dim); }
+.linkbtn { background: none; border: 0; color: var(--accent-text); cursor: pointer; font-size: 12px; padding: 4px 6px; border-radius: 6px; }
+.linkbtn:hover { background: var(--accent-soft); }
+
+/* ---------- context menu ---------- */
+.context-menu {
+  position: absolute; z-index: 100002; min-width: 210px;
+  background: var(--surface); backdrop-filter: blur(20px) saturate(150%);
+  border: 1px solid var(--border); border-radius: 10px; box-shadow: var(--shadow-pop);
+  padding: 6px; animation: pop-in .1s ease;
+}
+.cmenu-item {
+  width: 100%; text-align: left; display: flex; gap: 10px; align-items: center;
+  padding: 8px 10px; border: 0; background: transparent; color: var(--text);
+  border-radius: 7px; cursor: pointer; font-size: 13px;
+}
+.cmenu-item:hover { background: var(--accent-soft); }
+.cmenu-item .glyph { min-width: 18px; text-align: center; white-space: nowrap; }
+.cmenu-sep { height: 1px; background: var(--border); margin: 5px 4px; }
+.cmenu-hint { font-size: 11px; color: var(--text-faint); margin-left: auto; }
+
+/* ---------- toasts ---------- */
+.toasts { position: absolute; right: 12px; bottom: calc(var(--taskbar-h) + 12px); display: flex; flex-direction: column; gap: 8px; z-index: 100003; }
+.toast {
+  min-width: 220px; max-width: 340px; padding: 10px 12px;
+  background: var(--surface); border: 1px solid var(--border); border-left: 3px solid var(--accent);
+  border-radius: 10px; box-shadow: var(--shadow-pop); font-size: 13px;
+  animation: pop-in .16s ease;
+}
+.toast.err { border-left-color: var(--danger); }
+.toast.ok { border-left-color: var(--ok); }
+.toast .t { font-weight: 600; margin-bottom: 2px; }
+.toast .d { color: var(--text-dim); font-size: 12px; }
+
+/* ---------- dialogs ---------- */
+.dialogs { position: absolute; inset: 0; z-index: 100004; }
+.dialog-layer {
+  position: absolute; inset: 0; display: grid; place-items: center; padding: 16px;
+  background: var(--scrim); animation: fade-in .12s ease;
+}
+@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+.dialog {
+  width: min(430px, 100%); padding: 14px 16px 16px;
+  background: var(--surface); backdrop-filter: blur(24px) saturate(150%);
+  border: 1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow-pop);
+  animation: pop-in .14s cubic-bezier(.2,.9,.3,1);
+}
+.dlg-title { display: flex; gap: 10px; align-items: center; font-size: 14px; font-weight: 600; margin-bottom: 8px; }
+.dlg-icon {
+  width: 26px; height: 26px; flex: 0 0 auto; display: grid; place-items: center;
+  border-radius: 7px; background: var(--accent-soft); color: var(--accent-text); font-size: 14px;
+}
+.dialog[data-danger="true"] .dlg-icon { background: color-mix(in srgb, var(--danger) 22%, transparent); color: var(--danger-text); }
+.dlg-message { color: var(--text-dim); font-size: 12.5px; line-height: 1.45; margin-bottom: 12px; overflow-wrap: anywhere; }
+.dlg-form { display: flex; flex-direction: column; gap: 12px; }
+.dlg-input { width: 100%; height: 32px; }
+.dlg-actions { display: flex; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
+.dlg-btn {
+  height: 30px; padding: 0 12px; border-radius: 7px; cursor: pointer; font-size: 12.5px;
+  border: 1px solid var(--border); background: var(--surface-3); color: var(--text);
+}
+.dlg-btn:hover { background: var(--active); }
+.dlg-btn.primary { background: var(--accent); border-color: transparent; color: var(--on-accent); font-weight: 600; }
+.dlg-btn.primary:hover { filter: brightness(1.08); }
+.dlg-btn.danger { background: var(--danger); border-color: transparent; color: var(--on-danger); }
+
+/* ---------- shared app UI ---------- */
+.app { height: 100%; display: flex; flex-direction: column; background: var(--surface-solid); }
+.toolbar {
+  display: flex; align-items: center; gap: 6px; padding: 7px 9px; flex: 0 0 auto;
+  flex-wrap: nowrap; border-bottom: 1px solid var(--border); background: var(--surface-2);
+  /* Narrow windows scroll the toolbar instead of silently cutting buttons off. */
+  overflow: auto hidden; scrollbar-width: none; overscroll-behavior-x: contain;
+}
+.toolbar::-webkit-scrollbar { height: 0; }
+/* Nothing in a toolbar may be squashed to a sliver to make room: a 14px slider or a 2px
+   tool switcher is worse than a scrolled toolbar. Items keep their natural width and the
+   bar scrolls (or collapses a low-priority group — see data-collapse). */
+.toolbar > * { flex: 0 0 auto; }
+/* When a toolbar really is cut off (see watchToolbarOverflow), fade the side that is
+   clipped so the cut is visible. Scrolling a toolbar is honest; silently clipping
+   buttons is not. The fades are sticky pseudo-elements pinned to the scrollport edges,
+   pulled out of the flow with negative margins so they add no scrollable width. */
+.toolbar::before, .toolbar::after {
+  content: ''; position: sticky; top: 0; bottom: 0; width: 34px; height: auto;
+  align-self: stretch; flex: 0 0 34px; pointer-events: none; z-index: 2;
+  opacity: 0; transition: opacity .15s;
+}
+.toolbar::before { left: 0; margin-right: -40px; background: linear-gradient(90deg, var(--surface-2), transparent); }
+.toolbar::after { right: 0; margin-left: -40px; background: linear-gradient(270deg, var(--surface-2), transparent); }
+.toolbar[data-overflow-left="true"]::before { opacity: 1; }
+.toolbar[data-overflow-right="true"]::after { opacity: 1; }
+/* The `⋯` the overflow watcher adds when a bar cannot show everything (see
+   watchToolbarOverflow). Sticky against the right edge of the scrollport, so it stays
+   reachable while the rest of the bar is scrolled off; the menu it opens is the OS menu. */
+.toolbar-more {
+  position: sticky; right: 0; z-index: 3; flex: 0 0 auto;
+  width: 30px; height: 28px; margin: 0 -2px;
+  border: 1px solid var(--border); border-radius: 7px;
+  background: var(--surface-3); color: var(--text); font-size: 15px; line-height: 1;
+  cursor: pointer; letter-spacing: 1px;
+}
+.toolbar-more:hover { background: var(--active); }
+/* Buttons scrolled under it need to be cut off, not merely overlapped: the bar's own fade
+   sits behind this button, so it carries its own. */
+.toolbar-more::before {
+  content: ''; position: absolute; top: -1px; bottom: -1px; right: 100%; width: 22px;
+  background: linear-gradient(90deg, transparent, var(--surface-2)); pointer-events: none;
+}
+/* A spacer is free space, not a control: it may grow, but it must not hold a minimum width
+   in a bar that is already out of room. */
+.toolbar .spacer { flex: 1 1 8px; min-width: 0; }
+.btn {
+  height: 28px; padding: 0 10px; border-radius: 7px; cursor: pointer; flex: 0 0 auto;
+  white-space: nowrap; border: 1px solid var(--border); background: var(--surface-3); color: var(--text); font-size: 12.5px;
+}
+.btn:hover { background: var(--active); }
+.btn.primary { background: var(--accent); border-color: transparent; color: var(--on-accent); font-weight: 600; }
+.btn.primary:hover { filter: brightness(1.08); }
+.btn.ghost { background: transparent; }
+.btn.danger { background: var(--danger); border-color: transparent; color: var(--on-danger); }
+/* A control that can do nothing must look like it can do nothing: dimmed, and the
+   cursor stops pretending. Applies to every disabled button or field in the OS. */
+.btn:disabled, .toolbar button:disabled, .seg button:disabled, .field:disabled, .wbtn:disabled {
+  opacity: .45; cursor: not-allowed;
+}
+.btn:disabled:hover, .toolbar button:disabled:hover { background: inherit; filter: none; }
+/* Context-menu rows are buttons too, and a disabled one ("Paste" with an empty
+   clipboard) was indistinguishable from a live one. Destructive rows are tinted so
+   "Delete" and "Close" do not look like "Rename". */
+.cmenu-item:disabled { opacity: .45; cursor: not-allowed; }
+.cmenu-item:disabled:hover { background: transparent; }
+.cmenu-item.danger { color: var(--danger-text); }
+.cmenu-item.danger:hover { background: color-mix(in srgb, var(--danger) 18%, transparent); }
+.field {
+  height: 28px; padding: 0 9px; border-radius: 7px; min-width: 0;
+  background: var(--surface-solid); border: 1px solid var(--border); outline: none;
+}
+.field:focus { border-color: var(--accent); }
+.statusbar {
+  flex: 0 0 auto; display: flex; gap: 14px; align-items: center;
+  padding: 5px 10px; font-size: 11.5px; color: var(--text-dim);
+  border-top: 1px solid var(--border); background: var(--surface-2);
+  flex-wrap: wrap;
+}
+.pad { padding: 14px; }
+.muted { color: var(--text-dim); }
+.mono { font-family: var(--mono); }
+
+/* ---------- terminal ---------- */
+/* The canvas is dark in both themes, so the ink on it is pinned to the terminal's own palette.
+   Without this the light theme writes its near-black `--text`, its darkened accent and its dark
+   status inks onto a near-black background: 1.15:1 for ordinary output, 2.5–2.8:1 for the
+   coloured lines. Rebinding the *semantic* names here (rather than giving the terminal its own
+   names everywhere) means every rule below keeps working unchanged. */
+.term {
+  height: 100%; display: flex; flex-direction: column; background: #080c16;
+  /* Rebinding the tokens is not enough on its own: text with no `color:` declaration of its own
+     inherits a *computed* colour from the nearest ancestor that has one, and that ancestor is the
+     window, not the terminal. `ls` output was the light theme's near-black on a near-black canvas
+     until this line said the terminal paints its own text. */
+  color: var(--text);
+  --text: var(--term-text);
+  --text-dim: var(--term-dim);
+  --text-faint: var(--term-faint);
+  --ok-text: var(--term-ok);
+  --danger-text: var(--term-danger);
+  --accent-text: var(--accent-text-dark);
+}
+html[data-theme="light"] .term { background: #0f172a; }
+.term-out {
+  flex: 1; overflow: auto; padding: 10px 12px;
+  font-family: var(--mono); font-size: 13px; line-height: 1.5; white-space: pre-wrap; word-break: break-word;
+}
+.term-out .err { color: var(--danger-text); }
+/* Four levels, not three: `dim` is help text you asked for, `note` is something the shell is
+   telling you whether you asked or not (a name that will surprise you later, a substitution that
+   matched nothing). They cannot share one ink or the second kind reads like the first. `note` uses
+   the terminal's *existing* middle ink rather than inventing a fourth colour — the palette here is
+   already pinned to `--term-*` and every extra token is one more thing to keep readable. */
+.term-out .note { color: var(--text-dim); }
+.term-out .dim { color: var(--text-faint); }
+.term-out .acc { color: var(--accent-text); }
+.term-out .ok { color: var(--ok-text); }
+.term-out a { color: var(--accent-text); }
+.term-out .neof { color: var(--accent-text); font-weight: 600; }
+.term-row { flex: 0 0 auto; display: flex; gap: 8px; align-items: center; padding: 8px 12px; border-top: 1px solid var(--border); background: rgba(255,255,255,.03); }
+.term-cwd { font-family: var(--mono); font-size: 12.5px; color: var(--accent-text); white-space: nowrap; }
+.term-input { flex: 1; background: transparent; border: 0; outline: none; font-family: var(--mono); font-size: 13px; }
+.term-input::placeholder { color: var(--text-faint); }
+
+/* ---------- files ---------- */
+.files { flex-direction: row; }
+.files-side { width: 172px; flex: 0 0 auto; border-right: 1px solid var(--border); background: var(--surface-2); padding: 8px; overflow: auto; }
+.side-item {
+  width: 100%; display: flex; gap: 8px; align-items: center; padding: 7px 8px;
+  border: 0; background: transparent; color: var(--text); border-radius: 7px; cursor: pointer; font-size: 12.5px; text-align: left;
+}
+.side-item:hover { background: var(--hover); }
+.side-item.active { background: var(--accent-soft); color: var(--accent-text); }
+.files-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.crumbs { display: flex; gap: 2px; align-items: center; font-size: 12px; color: var(--text-dim); flex: 0 0 auto; }
+.crumbs button { background: none; border: 0; color: var(--text); cursor: pointer; padding: 4px 6px; border-radius: 5px; font-size: 12px; white-space: nowrap; }
+/* The current folder is the one crumb that is never hidden — but it is the last thing the
+   bar is allowed to give up, and what it gives up is length. Uncollapsed it is capped at
+   the width of a name this bar is willing to spend on a name; collapsed it is capped at a
+   recognisable beginning. Either way the ellipsis is real, and the full name is in the
+   button's accessible name, its tooltip and the window title.
+   Inside the button the name is two spans (see `splitName`): the ellipsis cuts the head and
+   the tail — the trailing word that often says *which* folder this is — survives both caps. */
+.crumbs .crumb-last { max-width: 160px; display: inline-flex; gap: 2px; align-items: baseline; min-width: 0; }
+.crumbs .crumb-name-head { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.crumbs .crumb-name-tail { flex: 0 0 auto; }
+/* 12 characters, not a pixel width: the rung has to be *below* the width of a name that
+   would otherwise be truncated for nothing. A cap that a short name already fits under is a
+   cut that buys nothing, and shortestFit hands it straight back.
+   Measured (tests/measure-crumb.mjs, Files at 360px, 12px UI font): 12ch is 82px of box —
+   70px of text after the button's 12px padding — and the 160px cap above is 148px, about 21
+   zero-width glyphs. The shortest name `splitName` will ever split is 20 characters, which
+   measures 107–136px here, so the rung always buys 20px or more and never fires on a name that
+   would have fit uncut. With a protected tail the box is shared: `splitName` caps the tail at 8
+   characters (57px at the widest measured) so the head keeps at least ~13px — a crumb showing
+   *only* a tail would be a name with its beginning thrown away, which is the opposite of what a
+   crumb is for. Raising this cap does not fix that; shortening the tail does. */
+.crumbs .crumb-last.is-collapsed { max-width: 12ch; }
+.crumbs button:hover { background: var(--hover); }
+/* A foldable middle segment travels with its own separator, so folding it leaves no
+   orphan gap behind. The fold is measured one segment at a time (see
+   data-collapse-units): the ellipsis that stands for "part of this trail is not shown"
+   appears as soon as one segment really is gone, and it sits before the segments that
+   survived, so a half-folded trail still reads `~ / … / notes`. */
+.crumb-mid { display: inline-flex; gap: 2px; align-items: center; }
+.crumb-mid.is-collapsed, .crumb-elide { display: none; }
+.crumbs.has-units-hidden .crumb-elide { display: inline-flex; gap: 2px; align-items: center; }
+/* The ellipsis stands in for the segments that were folded away, so it takes the room a
+   crumb's text would: a bare `…` hugs the slash on one side and not the other, which reads
+   as a typo in the path rather than as a fold. */
+.crumb-elide > .muted:not(.crumb-sep) { padding: 4px 6px; }
+/* The dead end at the end of a trail this window could not walk: the folder it was asked to
+   open. Not a button — clicking it would go nowhere — and deliberately not styled like one
+   either. The name is struck through rather than dimmed, because dimming is how this UI says
+   "disabled for now" and this is "does not exist". */
+.crumb-gone { display: inline-flex; gap: 2px; align-items: center; }
+.crumb-gone > .crumb-gone-name, .crumb-gone > .crumb-gone-mark { margin-left: 4px; }
+.crumb-gone.is-collapsed { display: none; }
+/* The dead end is a name too, and it gets the same treatment as the current folder: cut the
+   beginning, keep the end. It is struck through rather than dimmed, because dimming is how
+   this UI says "disabled for now" and this is "does not exist" — the line inherits through
+   both spans, so the protected tail is struck through too. */
+.crumb-gone-name { color: var(--text-faint); text-decoration: line-through; text-decoration-color: var(--danger); max-width: 140px; display: inline-flex; align-items: baseline; min-width: 0; }
+.crumb-gone-name > .crumb-gone-name-head { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+/* The dead end is the one piece of text in the bar whose colour carries meaning ("this is not
+   here"), so it is the one that cannot just inherit the faintest grey: on the light theme the
+   faint ink measured 2.9:1 against the window surface, which is below the 4.5:1 a reader needs
+   to tell a struck-through name from a dim one. The dim ink is 5.6:1 in both themes. */
+html[data-theme="light"] .crumb-gone-name { color: var(--text-dim); }
+.crumb-gone-mark { font-size: 10.5px; letter-spacing: .04em; text-transform: uppercase; border: 1px solid var(--border); border-radius: 4px; padding: 1px 4px; }
+/* Files filter box: flexible but never so small it becomes unusable. */
+.files-search { flex: 0 1 150px; min-width: 110px; font-size: 12.5px; }
+.files-search.is-collapsed { flex: 0 1 90px; min-width: 70px; }
+/* Collapsed forms of the Files toolbar: a labelled button whose glyph is already its icon
+   falls back to the glyph, and the filter box shrinks. The trail is never collapsed as a
+   whole — it is folded segment by segment so it always keeps the two segments that
+   actually orient you, the anchor and the folder you are in. The window title still
+   spells the full path. */
+.files-create { display: flex; gap: 6px; }
+/* The compact form of the create pair is one menu, not two wordless buttons. A bar that is
+   too narrow for the words is a bar that is too narrow for the pair: below the width where
+   both fit, the pair is replaced by a single "New" button whose menu names both actions and
+   costs less than either of them. The pair and its replacement are siblings, so hiding one
+   is what shows the other — no app code has to keep the two in step. If even the word
+   "New" is too much, the next thing the bar is allowed to give up is that word, and the
+   button keeps its glyph. */
+.files-create .files-new-menu { display: none; }
+.files-create-pair.is-collapsed { display: none; }
+.files-create-pair.is-collapsed ~ .files-new-menu { display: inline-flex; align-items: center; gap: 4px; }
+.toolbar .files-new-menu .btn-glyph { display: inline; }
+/* It is a compact button by design, so it keeps the padding the other compacted buttons get. */
+.toolbar .files-new-menu { padding: 0 8px; }
+.files-sort.is-collapsed .btn-label { display: none; }
+.files-sort.is-collapsed .btn-glyph { display: inline; }
+/* The Places words are the second thing a narrow Files window gives up — after the create
+   pair has already become one named menu button, which costs nothing — and the toolbar
+   watcher is what decides when (see the collapse order in src/apps/files.js and
+   data-collapse-scope in core/utils.js): the marker is a handle for it, and the sidebar
+   reacts to the marker being hidden. The icons stay clickable and keep their accessible
+   names — what is given up is the words, in exchange for 126px of bar. */
+.files-side-labels { display: none; }
+.files-side-labels.is-collapsed ~ .files-side { width: 46px; padding: 6px 5px; }
+.files-side-labels.is-collapsed ~ .files-side .side-item { justify-content: center; padding: 7px 0; }
+.files-side-labels.is-collapsed ~ .files-side .side-item .side-label { display: none; }
+.files-side-labels.is-collapsed ~ .files-side .start-section { display: none; }
+/* A phone-width Files window has no room for a keyboard cheat-sheet, and there is no
+   keyboard there; the counts are the only part of the status bar worth the lines. */
+.files.is-tiny .statusbar .muted { display: none; }
+.filegrid {
+  flex: 1; overflow: auto; align-content: start;
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 6px; padding: 12px;
+}
+.filecell {
+  display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 10px 6px;
+  border: 1px solid transparent; border-radius: 9px; cursor: default; background: transparent; color: var(--text);
+  user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
+}
+.filecell:hover { background: var(--hover); border-color: var(--border); }
+.filecell.selected { background: var(--accent-soft); border-color: var(--accent); }
+.filecell .glyph { font-size: 28px; }
+/* A long name is cut from the beginning, not from the end, when the end is an extension —
+   the end is the part that says what kind of file this is, and a plain CSS ellipsis throws
+   it away. There is still exactly one truncation mechanism (the ellipsis on `.name-head`);
+   this only decides which half of the name it is allowed to eat. */
+.filecell .name { display: flex; justify-content: center; align-items: baseline; max-width: 100%; font-size: 11.5px; white-space: nowrap; }
+.filecell .name-head { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.filecell .name-tail { flex: 0 0 auto; }
+.filecell .meta { font-size: 10px; color: var(--text-faint); }
+/* The message is not a file cell: it is about the whole folder, so it gets the whole row.
+   As a plain grid item it was confined to one 104px column and wrapped to a narrow column
+   of text that read like a broken sentence. */
+.empty-state { grid-column: 1 / -1; padding: 28px; text-align: center; color: var(--text-faint); font-size: 13px; }
+/* The folder this window was opened on is gone. Same whole-row treatment as an empty
+   folder, but it is a problem rather than a state: it names the path that was asked for and
+   puts the way back to it next to the sentence, not in a toast that expires. */
+.missing-state {
+  grid-column: 1 / -1; padding: 14px 18px; display: flex; flex-wrap: wrap; gap: 12px;
+  align-items: center; justify-content: center; text-align: center;
+  border: 1px solid var(--border); border-radius: 10px; background: var(--surface-3);
+  color: var(--text); font-size: 13px; line-height: 1.5;
+}
+
+/* ---------- editor ---------- */
+.editor-area {
+  flex: 1; min-height: 0; width: 100%; resize: none; border: 0; outline: none;
+  padding: 14px 16px; background: var(--surface-solid); color: var(--text);
+  font-family: var(--mono); font-size: 13.5px; line-height: 1.6; tab-size: 2;
+}
+
+/* ---------- viewer ---------- */
+.viewer-main { flex: 1; min-height: 0; display: grid; place-items: center; padding: 14px; overflow: auto; touch-action: pan-x pan-y; background:
+  repeating-conic-gradient(var(--surface-2) 0% 25%, var(--surface-solid) 0% 50%) 50% / 22px 22px; }
+.viewer-main img { max-width: 100%; max-height: 100%; border-radius: 8px; box-shadow: var(--shadow-pop); }
+.viewer-main.zoomed { place-items: start center; }
+.viewer-main.zoomed img { max-width: none; max-height: none; image-rendering: auto; }
+.viewer-text { align-items: stretch; justify-content: stretch; display: block; overflow: auto; background: var(--surface-solid); padding: 16px; font-family: var(--mono); font-size: 13px; white-space: pre-wrap; }
+
+/* ---------- paint ---------- */
+.paint-main { flex: 1; min-height: 0; position: relative; overflow: hidden; }
+.paint-canvas { position: absolute; inset: 0; width: 100%; height: 100%; cursor: crosshair; touch-action: none; }
+.swatch { width: 24px; height: 24px; border-radius: 6px; border: 1px solid var(--border); padding: 0; background: transparent; cursor: pointer; flex: 0 0 auto; }
+/* A toolbar group the app offered as collapsible (toolbar[data-collapse]) is marked
+   .is-collapsed by the overflow watcher, one group at a time, only when the bar genuinely
+   cannot fit everything. What "collapsed" means is the app's call: a group that is pure
+   duplication disappears, a group of labelled buttons falls back to its glyphs. A group may
+   instead offer its pieces (data-collapse-units), and then only the pieces the bar
+   actually needs the room for are marked. */
+.toolbar .btn-glyph { display: none; }
+.toolbar .btn-label { display: inline; }
+.toolbar .is-collapsed .btn-glyph { display: inline; }
+.toolbar .is-collapsed .btn-label { display: none; }
+/* A group may offer its own label as a piece the bar can give up — the word on a button
+   whose glyph already stands alone. Then the label carries the marker itself rather than
+   inheriting it from an ancestor, so it needs its own rule. */
+.toolbar .btn-label.is-collapsed { display: none; }
+.paint-palette { display: flex; gap: 4px; align-items: center; }
+/* Swatches are given up one at a time, from the end of the row. */
+.paint-palette .swatch.is-collapsed { display: none !important; }
+.paint-size-readout.is-collapsed { display: none !important; }
+.seg.is-collapsed button { padding: 5px 8px; }
+.paint-size-slider { flex: 0 1 100px; min-width: 56px; padding: 0 6px; }
+/* A compacted group is denser too: glyph-only buttons do not need word-sized padding. */
+.toolbar .is-collapsed .btn { padding: 0 8px; }
+.swatch.active { outline: 2px solid var(--accent); outline-offset: 1px; border-color: var(--accent); }
+input[type="color"].swatch { padding: 0; }
+input[type="color"].swatch::-webkit-color-swatch-wrapper { padding: 3px; }
+input[type="color"].swatch::-webkit-color-swatch { border: none; border-radius: 4px; }
+.seg { display: inline-flex; border: 1px solid var(--border); border-radius: 7px; overflow: hidden; }
+.seg button { border: 0; background: transparent; color: var(--text-dim); padding: 5px 10px; cursor: pointer; font-size: 12.5px; flex: 0 0 auto; }
+.seg button.active { background: var(--accent); color: var(--on-accent); }
+
+/* ---------- calculator ---------- */
+.calc { max-width: 340px; margin: 0 auto; width: 100%; }
+.calc-display {
+  margin: 12px; padding: 14px; border-radius: 10px; background: var(--surface-2);
+  border: 1px solid var(--border); text-align: right; font-family: var(--mono);
+}
+.calc-display .expr { font-size: 12px; color: var(--text-faint); min-height: 16px; }
+.calc-display .val { font-size: 28px; font-weight: 600; word-break: break-all; }
+.calc-pad { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; padding: 0 12px 12px; }
+.calc-key {
+  height: 52px; border-radius: 10px; border: 1px solid var(--border);
+  background: var(--surface-3); color: var(--text); font-size: 17px; cursor: pointer;
+}
+.calc-key:hover { background: var(--active); }
+.calc-key.op { background: var(--accent-soft); color: var(--accent-text); }
+.calc-key.eq { background: var(--accent); color: var(--on-accent); border-color: transparent; font-weight: 700; }
+
+/* ---------- settings ---------- */
+.settings-main { flex: 1; overflow: auto; padding: 16px; }
+.card { border: 1px solid var(--border); border-radius: 12px; padding: 14px; margin-bottom: 14px; background: var(--surface-2); }
+.card h3 { margin: 0 0 4px; font-size: 14px; }
+.card p { margin: 0 0 12px; color: var(--text-dim); font-size: 12.5px; }
+.row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.wp-tile {
+  width: 104px; height: 64px; border-radius: 9px; border: 2px solid var(--border); cursor: pointer;
+  background-size: cover; background-position: center;
+}
+.wp-tile.active { border-color: var(--accent); }
+.kv { display: grid; grid-template-columns: 130px 1fr; gap: 4px 10px; font-size: 12.5px; }
+.kv .k { color: var(--text-dim); }
+/* The wallpaper measurement, said out loud (Settings ▸ Appearance). `ok`/`warn` are the two
+   colours the rest of the OS already uses for "this is fine" and "this needs you". */
+.ink-note { display: flex; gap: 8px; align-items: center; color: var(--text-dim); }
+.ink-note.ok { color: var(--ok-text); }
+.ink-note.warn { color: var(--warn-text); }
+.ink-note .dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; flex: 0 0 auto; }
+
+/* ---------- web ---------- */
+.web-main { flex: 1; min-height: 0; border: 0; width: 100%; background: #fff; }
+.web-loading { display: inline-flex; align-items: center; gap: 6px; color: var(--accent-text); }
+.web-loading::before {
+  content: ""; width: 9px; height: 9px; border-radius: 50%;
+  border: 2px solid var(--accent); border-top-color: transparent; animation: spin .7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ---------- welcome ---------- */
+.welcome { padding: 18px 20px; overflow: auto; }
+.welcome h1 { margin: 0 0 4px; font-size: 20px; }
+.welcome .sub { color: var(--text-dim); margin-bottom: 12px; font-size: 12.5px; }
+.welcome ul { margin: 0 0 14px; padding-left: 18px; font-size: 12.5px; line-height: 1.55; }
+.welcome code { font-family: var(--mono); background: var(--surface-2); padding: 1px 5px; border-radius: 4px; font-size: 12px; }
+.welcome .cta { display: flex; gap: 8px; flex-wrap: wrap; }
+
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 8px; border: 2px solid transparent; background-clip: padding-box; }
+::-webkit-scrollbar-thumb:hover { background: var(--text-faint); }
+::-webkit-scrollbar-track { background: transparent; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .001ms !important;
+  }
+}
+
+@media (max-width: 720px) {
+  .files-side { width: 128px; }
+  .start-menu { width: calc(100vw - 16px); }
+  .start-label { display: none; }
+}
+
+/* Phone width. The taskbar's job here is the window buttons; "1 window · 5 files" restates
+   what you can already see and costs one of them, and a 220px button title is most of the
+   screen. The clock keeps the time and drops the date. */
+@media (max-width: 560px) {
+  .tray-status { display: none; }
+  .titem { max-width: 150px; }
+  .clock .date { display: none; }
+}
