@@ -1,5 +1,7 @@
 # experiments.galedra.org
 
+Collected by [Brandon Hoult](https://hoult.co).
+
 The files behind https://experiments.galedra.org: things built to see what happens, kept as
 they were when copied there. Nothing here is maintained.
 
